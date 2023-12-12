@@ -1,0 +1,139 @@
+import os
+import pandas as pd
+
+
+class Loader:
+    """
+    Base class for all "Loader".
+
+    The "Loader" class defines the common API
+    that all the "Loader" need to implement, as well as common functionality.
+
+    ...
+    Methods:
+        Loader(filepath)
+        Returns:
+            pandas.DataFrame: A pandas DataFrame
+                containing the loaded data which already casting
+    ...
+
+    Args:
+        filepath (str):
+            The fullpath of dataset.
+
+        header_exist (bool ,optional):
+            Is header as 1st row of data or NOT. Default is True.
+        header_names (list ,optional):
+            Header list of data.
+            It will be replacement if header_exist is True,
+            and generating if header_exist is False. Default is empty list [].
+        sep (str ,optional):
+            Character or regex pattern to treat as the delimiter. Default is comma ",". 
+
+        sheet_name (str | int ,optional):
+            Strings are used for sheet names.
+            Integers are used in zero-indexed sheet positions (chart sheets do not count as a sheet position).
+            Specify None to get all worksheets.
+
+        colnames_discrete (list ,optional):
+            List of column names that are discrete. They will be forcibly treated as strings,
+            and convert to categorical later. Default is empty list [].
+        colnames_datetime (list ,optional):
+            List of column names that are date/datetime. They will be forcibly treated as strings,
+            and convert to date or datetime later. Default is empty list [].
+
+        dtype (dict ,optional):
+            Dictionary of columns data type force assignment.
+            Format as {colname: col_dtype}. Default is None, means no se empty dict {}.
+
+        na_values (str | list | dict ,optional):
+            Extra string to recognized as NA/NaN.
+            If dictionary passed, value will be specific per-column NA values.
+            Format as {colname: na_values}.
+            Default is None, means no extra. Check pandas document for Default NA string list.
+
+    """
+
+    def __init__(self,
+                 filepath: str,
+                 header_exist: bool = True,
+                 header_names: list = None,
+                 sep: str = ',',
+                 sheet_name=0,  # : str ,int
+                 colnames_discrete: list = None,
+                 colnames_datetime: list = None,
+                 dtype: dict = None,  # TODO: dtype 跟 colnames_xxx 重複功能
+                 na_values=None,
+                 ):
+        self._filepath: str = ''
+        self._file_ext: str = ''
+        self._colnames_discrete: list = []
+        self._colnames_datetime: list = []
+        self._dtype: str = ''
+
+        # General Setting
+        self._header_exist = header_exist
+        self._header_names = header_names
+        self._sep = sep
+        self._sheet_name = sheet_name
+        self._na_values = na_values
+
+        # Check filepath exist
+        self._check_filepath_exist(filepath)
+
+        # Specified Data Types
+        self._specifying_dtype(colnames_discrete, colnames_datetime)
+
+        self.data = self.load()
+        # ####### ####### ####### ####### ####### ######
+        # ####### Optimized dtype
+        # if not dtype:
+        #     dtype = {}
+        # ####### ####### ####### ####### ####### ###### ######
+        # ####### [TODO] 我還在思考這裡要怎麼直接接收 pd.dateframe 的 dtype
+        # from ..util import df_cast_check        ###### ######
+        # dtype.update(df_cast_check(self.data ,dtype))  ######
+        # self.dtype = dtype                      ###### ######
+        # ####### ####### ####### ####### ####### ###### ######
+        # from ..util import df_casting
+        # self.data = df_casting(self.data ,dtype)
+
+        # ####### ####### ####### ####### ####### ######
+        # ####### Recode parameter
+        # self.para = {}
+        # self.para['Loader'] = _para_Loader
+
+    def _check_filepath_exist(self, filepath):
+        if os.path.exists(filepath):
+            self._filepath = filepath
+            self._file_ext = os.path.splitext(filepath)[1].lstrip('.').lower()
+        else:
+            raise FileNotFoundError(f"The file is not exist: {filepath}")
+
+    def _specifying_dtype(self, colnames_discrete, colnames_datetime):
+        colnames_discrete = [] if colnames_discrete is None else colnames_discrete
+        colnames_datetime = [] if colnames_datetime is None else colnames_datetime
+        dict_colnames_string = dict.fromkeys(
+            [*colnames_discrete, *colnames_datetime], str)
+        self._colnames_discrete = colnames_discrete
+        self._colnames_datetime = colnames_datetime
+        self._dtype = dict_colnames_string
+
+    def load(self) -> dict:
+        return {}
+
+
+class LoaderCsvPandas(Loader):
+    def load(self):
+        dict_setting = {}
+        dict_setting['filepath_or_buffer'] = self._filepath
+
+        list_setting = ['sep', 'dtype', 'na_values']
+        dict_setting.update({k: self.__dict__['_' + k] for k in list_setting})
+
+        if self._header_exist:
+            dict_setting['header'] = 0
+        else:
+            dict_setting.update({'header': None, 'names': self._header_names})
+
+        return pd.read_csv(**dict_setting)
