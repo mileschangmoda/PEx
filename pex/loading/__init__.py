@@ -1,3 +1,3 @@
-from pex.loading.loader import Loader, LoaderCsvPandas
+from pex.loading.loader import Loader
 
-__all__ = ['Loader', 'LoaderCsvPandas']
+__all__ = ['Loader']

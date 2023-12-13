@@ -1,10 +1,9 @@
 class TestClass:
     def test_csv_loader(self):
-        from pex.loading.loader import Loader, LoaderCsvPandas
+        from pex.loading.loader import Loader
 
         print('Test 1: test csv loader')
-        from pex.loading.loader import Loader, LoaderCsvPandas
-        loader: Loader = LoaderCsvPandas('tests/test_loader/test.csv')
+        loader: Loader = Loader('tests/test_loader/test.csv')
         assert int(loader.data['col1'].iloc[0]) == 1
 
 

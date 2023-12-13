@@ -43,6 +43,7 @@ class Loader:
             and convert to date or datetime later. Default is empty list [].
 
         dtype (dict ,optional):
+            [TODO] dtype 跟 colnames_xxx 重複功能
             Dictionary of columns data type force assignment.
             Format as {colname: col_dtype}. Default is None, means no se empty dict {}.
 
@@ -54,37 +55,26 @@ class Loader:
 
     """
 
-    def __init__(self,
-                 filepath: str,
-                 header_exist: bool = True,
-                 header_names: list = None,
-                 sep: str = ',',
-                 sheet_name=0,  # : str ,int
-                 colnames_discrete: list = None,
-                 colnames_datetime: list = None,
-                 dtype: dict = None,  # TODO: dtype 跟 colnames_xxx 重複功能
-                 na_values=None,
+    def __init__(self, filepath: str, header_exist: bool = True, header_names: list = None, sep: str = ',', sheet_name=0, colnames_discrete: list = None, colnames_datetime: list = None, dtype: dict = None, na_values=None
                  ):
-        self._filepath: str = ''
-        self._file_ext: str = ''
-        self._colnames_discrete: list = []
-        self._colnames_datetime: list = []
-        self._dtype: str = ''
-
         # General Setting
-        self._header_exist = header_exist
-        self._header_names = header_names
-        self._sep = sep
-        self._sheet_name = sheet_name
-        self._na_values = na_values
+        para_Loader = {
+            'header_exist': header_exist,
+            'header_names': header_names,
+            'sep': sep,
+            'sheet_name': sheet_name,
+            'na_values': na_values
+        }
 
         # Check filepath exist
-        self._check_filepath_exist(filepath)
+        para_Loader.update(self._check_filepath_exist(filepath))
 
         # Specified Data Types
-        self._specifying_dtype(colnames_discrete, colnames_datetime)
+        para_Loader.update(self._specifying_dtype(
+            colnames_discrete, colnames_datetime))
 
-        self.data = self.load()
+        # Delegate and Load Data (Factory Design)
+        self.data = _load(para_Loader)
         # ####### ####### ####### ####### ####### ######
         # ####### Optimized dtype
         # if not dtype:
@@ -105,8 +95,10 @@ class Loader:
 
     def _check_filepath_exist(self, filepath):
         if os.path.exists(filepath):
-            self._filepath = filepath
-            self._file_ext = os.path.splitext(filepath)[1].lstrip('.').lower()
+            return {
+                'filepath': filepath,
+                'file_ext': os.path.splitext(filepath)[1].lstrip('.').lower()
+            }
         else:
             raise FileNotFoundError(f"The file is not exist: {filepath}")
 
@@ -115,25 +107,47 @@ class Loader:
         colnames_datetime = [] if colnames_datetime is None else colnames_datetime
         dict_colnames_string = dict.fromkeys(
             [*colnames_discrete, *colnames_datetime], str)
-        self._colnames_discrete = colnames_discrete
-        self._colnames_datetime = colnames_datetime
-        self._dtype = dict_colnames_string
+        return {
+            'colnames_discrete': colnames_discrete,
+            'colnames_datetime': colnames_datetime,
+            'dtype': dict_colnames_string
+        }
 
-    def load(self) -> dict:
-        return {}
+
+def _load(para_Loader: dict):
+    file_ext = para_Loader['file_ext']
+    if file_ext == 'csv':
+        # Setting for CSV
+        return _loader_csv_pandas(para_Loader)
+    elif file_ext in ['xls', 'xlsx', 'xlsm', 'xlsb', 'odf', 'ods', 'odt']:
+        # Setting for Excel
+        return _loader_excel_pandas(para_Loader)
+    else:
+        raise ValueError(f"Unsupported file type, now is {file_ext}.")
 
 
-class LoaderCsvPandas(Loader):
-    def load(self):
-        dict_setting = {}
-        dict_setting['filepath_or_buffer'] = self._filepath
+def _loader_csv_pandas(para_Loader):
+    header = 0 if para_Loader['header_exist'] else None
+    return pd.read_csv(
+        filepath_or_buffer=para_Loader['filepath'],
+        sep=para_Loader['sep'],
+        dtype=para_Loader['dtype'],
+        na_values=para_Loader['na_values'],
+        header=header,
+        names=para_Loader['header_names'],)
 
-        list_setting = ['sep', 'dtype', 'na_values']
-        dict_setting.update({k: self.__dict__['_' + k] for k in list_setting})
 
-        if self._header_exist:
-            dict_setting['header'] = 0
+def _loader_excel_pandas(para_Loader):
+    try:
+        header = 0 if para_Loader['header_exist'] else None
+        return pd.read_excel(io=para_Loader['filepath'],
+                             sheet_name=para_Loader['sheet_name'],
+                             dtype=para_Loader['dtype'],
+                             na_values=para_Loader['na_values'],
+                             header=header,
+                             names=para_Loader['header_names'])
+    except ValueError as e:
+        if "Worksheet named" in str(e) and "not found" in str(e):
+            print(f"Sheet name {para_Loader['sheet_name']} does NOT exist.")
         else:
-            dict_setting.update({'header': None, 'names': self._header_names})
-
-        return pd.read_csv(**dict_setting)
+            print("An unknown ValueError occurred:", e)
