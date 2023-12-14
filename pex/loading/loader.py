@@ -70,8 +70,8 @@ class Loader:
         para_Loader.update(self._check_filepath_exist(filepath))
 
         # Specified Data Types
-        para_Loader.update(self._specifying_dtype(
-            colnames_discrete, colnames_datetime))
+        para_Loader.update(
+            self._specifying_dtype(colnames_discrete, colnames_datetime))
 
         # Delegate and Load Data (Factory Design)
         self.data = _load(para_Loader)
@@ -116,13 +116,19 @@ class Loader:
 
 def _load(para_Loader: dict):
     file_ext = para_Loader['file_ext']
-    if file_ext == 'csv':
-        # Setting for CSV
-        return _loader_csv_pandas(para_Loader)
-    elif file_ext in ['xls', 'xlsx', 'xlsm', 'xlsb', 'odf', 'ods', 'odt']:
-        # Setting for Excel
-        return _loader_excel_pandas(para_Loader)
-    else:
+    try:
+        method = {
+            'csv': _loader_csv_pandas,
+            'xls': _loader_excel_pandas,
+            'xlsx': _loader_excel_pandas,
+            'xlsm': _loader_excel_pandas,
+            'xlsb': _loader_excel_pandas,
+            'odf': _loader_excel_pandas,
+            'ods': _loader_excel_pandas,
+            'odt': _loader_excel_pandas
+        }
+        return method[file_ext](para_Loader)
+    except (KeyError):
         raise ValueError(f"Unsupported file type, now is {file_ext}.")
 
 
